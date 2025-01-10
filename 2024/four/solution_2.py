@@ -1,87 +1,49 @@
-import numpy as np
-import time
-from pathlib import Path
-from typing import List, Tuple
 
-class GridPatternFinder:
-    def __init__(self, pattern_size: Tuple[int, int] = (3, 3)):
+import itertools
 
-        self.pattern_size = pattern_size
-        self._validate_pattern_size()
+with open("/mnt/data/input.txt", "r") as f:
+    grid = [list(line.strip()) for line in f.readlines()]
 
-    def _validate_pattern_size(self) -> None:
-        if not all(dim >= 3 and dim % 2 == 1 for dim in self.pattern_size):
-            raise ValueError("Pattern dimensions must be odd numbers >= 3")
+deltas = list(itertools.product([-1, 0, 1], repeat=2))
 
-    @staticmethod
-    def read_grid_from_file(file_path: str) -> np.ndarray:
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"Input file not found: {file_path}")
-
-        with open(file_path, 'r') as file:
-            grid = [list(line.strip()) for line in file if line.strip()]
-
-        if not grid:
-            raise ValueError("Empty grid in input file")
-        
-        if not all(len(row) == len(grid[0]) for row in grid):
-            raise ValueError("Inconsistent row lengths in grid")
-
-        return np.array(grid)
-
-    def _check_pattern(self, window: np.ndarray) -> bool:
-        center = window[1, 1]
-        if center != 'A':
+def xmas(grid, r, c, dr, dc):
+    """Checks if the 'XMAS' pattern exists starting from grid[r][c] in direction (dr, dc)."""
+    rows, cols = len(grid), len(grid[0])
+    if dr == 0 and dc == 0:
+        return False
+    if grid[r][c] != 'X':
+        return False
+    for i in range(1, 4):
+        nr, nc = r + i * dr, c + i * dc
+        if not (0 <= nr < rows and 0 <= nc < cols):
             return False
+        if (i == 1 and grid[nr][nc] != 'M') or \
+           (i == 2 and grid[nr][nc] != 'A') or \
+           (i == 3 and grid[nr][nc] != 'S'):
+            return False
+    return True
 
-        corners = [window[0, 0], window[0, 2], window[2, 0], window[2, 2]]
-        
-        # check for M M / S S pattern
-        return (
-            (corners[0:2] == ['M', 'M'] and corners[2:] == ['S', 'S']) or
-            (corners[0:2] == ['S', 'S'] and corners[2:] == ['M', 'M'])
-        )
+def search(grid, r, c):
+    """Counts the number of 'XMAS' patterns starting from grid[r][c]."""
+    return sum(1 for dr, dc in deltas if xmas(grid, r, c, dr, dc))
 
-    def find_patterns(self, grid: np.ndarray) -> int:
-        height, width = grid.shape
-        pattern_height, pattern_width = self.pattern_size
-        
-        if height < pattern_height or width < pattern_width:
-            raise ValueError(f"Grid too small. Minimum size: {self.pattern_size}")
+def mas(grid, r, c):
+    """Checks if the 'MAS' pattern exists centered around grid[r][c]."""
+    rows, cols = len(grid), len(grid[0])
+    if grid[r][c] != 'A':
+        return False
+    checks = [
+        (grid[r-1][c-1] == 'M' and grid[r+1][c+1] == 'S') or 
+        (grid[r-1][c-1] == 'S' and grid[r+1][c+1] == 'M'),
+        (grid[r-1][c+1] == 'M' and grid[r+1][c-1] == 'S') or 
+        (grid[r-1][c+1] == 'S' and grid[r+1][c-1] == 'M')
+    ]
+    return any(checks)
 
-        count = 0
-        for i in range(1, height - 1):
-            for j in range(1, width - 1):
-                window = grid[i-1:i+2, j-1:j+2]
-                if self._check_pattern(window):
-                    count += 1
-        
-        return count
+part1 = sum(search(grid, r, c) for r in range(len(grid)) for c in range(len(grid[0])))
 
-def main() -> None:
-    try:
-        start_time = time.perf_counter()
-        
-        finder = GridPatternFinder()
-        
-        file_path = "input.txt"
-        grid = finder.read_grid_from_file(file_path)
-        load_time = time.perf_counter()
-        
-        occurrences = finder.find_patterns(grid)
-        search_time = time.perf_counter()
-        
-        print(f"\nResults:")
-        print(f"Found {occurrences} eigenvectors patterns")
-        print(f"\nTiming:")
-        print(f"Grid loading time: {load_time - start_time:.4f} seconds")
-        print(f"Search time: {search_time - load_time:.4f} seconds")
-        print(f"Total execution time: {search_time - start_time:.4f} seconds")
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        raise
+part2 = sum(
+    1 for r in range(1, len(grid) - 1) for c in range(1, len(grid[0]) - 1) if mas(grid, r, c)
+)
 
-if __name__ == "__main__":
-    main()
+(part1, part2)

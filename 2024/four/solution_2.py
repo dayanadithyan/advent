@@ -1,49 +1,49 @@
+import os
+from collections import defaultdict
+from typing import List
 
-import itertools
+# Read and process input file
+with open("input.txt", "r") as file:
+    inputs = file.read().split(os.linesep * 2)
 
-with open("/mnt/data/input.txt", "r") as f:
-    grid = [list(line.strip()) for line in f.readlines()]
+pairs = [
+    list(map(int, line.split("|")))
+    for line in inputs[0].split(os.linesep)
+]
 
-deltas = list(itertools.product([-1, 0, 1], repeat=2))
+lists = [
+    list(map(int, line.split(",")))
+    for line in inputs[1].split(os.linesep)
+]
 
-def xmas(grid, r, c, dr, dc):
-    """Checks if the 'XMAS' pattern exists starting from grid[r][c] in direction (dr, dc)."""
-    rows, cols = len(grid), len(grid[0])
-    if dr == 0 and dc == 0:
-        return False
-    if grid[r][c] != 'X':
-        return False
-    for i in range(1, 4):
-        nr, nc = r + i * dr, c + i * dc
-        if not (0 <= nr < rows and 0 <= nc < cols):
-            return False
-        if (i == 1 and grid[nr][nc] != 'M') or \
-           (i == 2 and grid[nr][nc] != 'A') or \
-           (i == 3 and grid[nr][nc] != 'S'):
-            return False
-    return True
+# Group pairs by their second value and create a dictionary
+prefixes = defaultdict(list)
+for pair in pairs:
+    prefixes[pair[1]].append(pair[0])
 
-def search(grid, r, c):
-    """Counts the number of 'XMAS' patterns starting from grid[r][c]."""
-    return sum(1 for dr, dc in deltas if xmas(grid, r, c, dr, dc))
+# Custom comparator function
+def compare(x, y):
+    return -1 if y in prefixes.get(x, []) else 1
 
-def mas(grid, r, c):
-    """Checks if the 'MAS' pattern exists centered around grid[r][c]."""
-    rows, cols = len(grid), len(grid[0])
-    if grid[r][c] != 'A':
-        return False
-    checks = [
-        (grid[r-1][c-1] == 'M' and grid[r+1][c+1] == 'S') or 
-        (grid[r-1][c-1] == 'S' and grid[r+1][c+1] == 'M'),
-        (grid[r-1][c+1] == 'M' and grid[r+1][c-1] == 'S') or 
-        (grid[r-1][c+1] == 'S' and grid[r+1][c-1] == 'M')
-    ]
-    return any(checks)
+# Function to get the middle element of a list
+def middle(lst: List[int]) -> int:
+    return lst[len(lst) // 2]
 
-part1 = sum(search(grid, r, c) for r in range(len(grid)) for c in range(len(grid[0])))
+part1 = 0
+part2 = 0
 
-part2 = sum(
-    1 for r in range(1, len(grid) - 1) for c in range(1, len(grid[0]) - 1) if mas(grid, r, c)
-)
+# Process lists
+for lst in lists:
+    for i in range(len(lst)):
+        if lst[i] not in prefixes:
+            continue
+        if any(item in prefixes[lst[i]] for item in lst[i + 1:]):
+            lst.sort(key=lambda x: (x, compare(lst[0], x)))  # Sorting with custom comparator
+            part2 += middle(lst)
+            break
+    else:
+        part1 += middle(lst)
 
-(part1, part2)
+# Print results
+print(f"Part 1: {part1}")
+print(f"Part 2: {part2}")

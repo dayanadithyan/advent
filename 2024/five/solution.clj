@@ -1,70 +1,58 @@
-(ns solution.core
-  (:require [clojure.string :as str])
-  (:import [java.util ArrayList]))
+(ns advent-of-code.y2024.day06
+  (:require [clojure.set :as set]
+            [clojure.string :as str]))
 
-(defn read-input [filename]
-  (let [lines (slurp filename)
-        inputs (str/split-lines lines)
-        pairs []
-        lists []
-        prefixes (atom {})]
-    (doseq [line inputs]
-      (let [line (str/trim line)]
-        (when-not (str/blank? line)
-          (if (str/includes? line "|")
-            (let [[a b] (str/split line #"\|")]
-              (swap! prefixes update (Integer. b) (fnil conj []) (Integer. a)))
-            (let [numbers (->> (str/split line #",")
-                               (map str/trim)
-                               (map #(Integer. %))
-                               (filter identity))]
-              (when-not (empty? numbers)
-                (swap! lists conj numbers)))))))
-    [lists @prefixes]))
+(def up 1i)
+(def turn-right -1i)
 
-(defn should-come-before [a b prefixes]
-  (some #(= b %) (get prefixes a [])))
+(defn part-one [input]
+  (let [[map-data start] (parse input)]
+    (count (:positions (walk map-data start)))))
 
-(defn custom-sort [lst prefixes]
-  (let [result (ArrayList. lst)
-        n (count lst)]
-    (doseq [i (range n)]
-      (doseq [j (range 0 (- n i 1))]
-        (when (should-come-before (nth result (inc j)) (nth result j) prefixes)
-          (let [temp (nth result j)]
-            (.set result j (nth result (inc j)))
-            (.set result (inc j) temp)))))
-    (vec result)))
+(defn part-two [input]
+  (let [[map-data start] (parse input)]
+    (count (filter
+             (fn [pos]
+               (:is-loop (walk (assoc map-data pos \#) start)))
+             (:positions (walk map-data start))))))
 
-(defn middle [lst]
-  (if (empty? lst) 0
-      (nth lst (quot (count lst) 2))))
+(defn walk [map-data pos]
+  (loop [seen #{}
+         dir up
+         pos pos]
+    (if (or (not (map-data pos))
+            (seen [pos dir]))
+      {:positions (set (map first seen))
+       :is-loop (seen [pos dir])}
+      (recur
+        (conj seen [pos dir])
+        (if (= (map-data (+ pos dir)) \#)
+          (* dir turn-right)
+          dir)
+        (if (= (map-data (+ pos dir)) \#)
+          pos
+          (+ pos dir))))))
 
-(defn solve [filename]
-  (let [[lists prefixes] (read-input filename)
-        part1 (atom 0)
-        part2 (atom 0)]
-    (doseq [lst lists]
-      (when-not (empty? lst)
-        (let [sorted-lst (atom nil)]
-          (loop [i 0]
-            (when (< i (count lst))
-              (let [current (nth lst i)]
-                (if (and (contains? prefixes current)
-                         (some #(should-come-before current % prefixes) (subvec lst (inc i))))
-                  (do
-                    (reset! sorted-lst (custom-sort lst prefixes))
-                    (swap! part2 + (middle @sorted-lst)))
-                  (recur (inc i))))))
-          (when-not @sorted-lst
-            (swap! part1 + (middle lst))))))
-    [@part1 @part2]))
+(defn parse [input]
+  (let [lines (str/split-lines input)
+        map-data (reduce-kv
+                   (fn [m y line]
+                     (reduce-kv
+                       (fn [m x char]
+                         (assoc m (+ (- (* up y)) x) char))
+                       m
+                       (vec line)))
+                   {}
+                   (vec lines))
+        start (first (filter #(= (val %) \^) map-data))]
+    [map-data (key start)]))
 
-(defn -main [& args]
-  (try
-    (let [[part1 part2] (solve "input.txt")]
-      (println "Part 1:" part1)
-      (println "Part 2:" part2))
-    (catch Exception e
-      (println "Error occurred:" (.getMessage e))
-      (.printStackTrace e))))
+(defn read-input []
+  (slurp "input.txt"))
+
+(defn -main []
+  (let [input-data (read-input)]
+    (println "Part One:" (part-one input-data))
+    (println "Part Two:" (part-two input-data))))
+
+(-main)
